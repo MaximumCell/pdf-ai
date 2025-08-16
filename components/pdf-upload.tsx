@@ -61,7 +61,7 @@ export function PDFUpload({ onPDFReady }: PDFUploadProps) {
                 throw new Error('Upload failed');
             }
 
-            const result = await response.json();
+            await response.json();
 
             // Update status to ready
             const updatedPDF = {

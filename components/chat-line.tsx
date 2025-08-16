@@ -24,10 +24,20 @@ const convertNewLines = (text: string) =>
         </span>
     ));
 
+interface Source {
+    pageContent?: string;
+    content?: string;
+    metadata?: {
+        source?: string;
+        fileName?: string;
+        pageNumber?: number;
+    };
+}
+
 interface ChatLineProps {
     role?: "user" | "assistant";
     content?: string;
-    sources: any[]; // Changed from string[] to any[] to handle document objects
+    sources: (string | Source)[]; // Changed from any[] to proper union type
 }
 
 export function ChatLine({
@@ -65,7 +75,7 @@ export function ChatLine({
                                     // Handle both string sources and document objects
                                     const sourceText = typeof source === 'string'
                                         ? source
-                                        : source?.pageContent || source?.content || JSON.stringify(source);
+                                        : (source as Source)?.pageContent || (source as Source)?.content || JSON.stringify(source);
 
                                     return (
                                         <AccordionItem value={`source-${index}`} key={index}>

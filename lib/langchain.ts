@@ -48,7 +48,7 @@ export async function callChain({ question, chatHistory, pdfId }: callChainArgs)
                 const collectionName = `pdf_${pdfId}`;
                 vectorStore = await getVectorStore(collectionName);
                 console.log(`Using PDF-specific collection: ${collectionName}`);
-            } catch (error) {
+            } catch {
                 console.log(`PDF collection not found, falling back to default collection`);
                 vectorStore = await getVectorStore();
             }

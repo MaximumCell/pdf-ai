@@ -11,13 +11,11 @@ import { getMongoClient } from "./mongo-client";
 // loading a PDF, chunking it, embedding the chunks,
 // and storing them in MongoDB Atlas Vector Search.
 async function ingestAndStorePDF() {
-    let client;
-
     try {
         // 1. Establish the database connection
         // Note: getMongoClient() is assumed to return a MongoClient instance
         // that is a wrapper around mongoose or a direct client connection.
-        client = await getMongoClient();
+        await getMongoClient();
 
         console.log("PDF loader process started.");
 

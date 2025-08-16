@@ -11,7 +11,15 @@ interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
-    sources?: any[];
+    sources?: Array<{
+        pageContent?: string;
+        content?: string;
+        metadata?: {
+            source?: string;
+            fileName?: string;
+            pageNumber?: number;
+        };
+    }>;
 }
 
 interface ChatProps {
@@ -23,7 +31,7 @@ export function Chat({ selectedPDFId }: ChatProps) {
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [data, setData] = useState<any[]>([]);
+    const [data, setData] = useState<Array<{ sources: string[] }>>([]);
 
     // Reset messages when a new PDF is selected
     useEffect(() => {
@@ -85,7 +93,7 @@ export function Chat({ selectedPDFId }: ChatProps) {
 
             // Store sources data for getSources utility
             if (data.sources) {
-                setData(prev => [...prev, { sources: data.sources }]);
+                setData(prev => [...prev, { sources: data.sources.map((s: unknown) => String(s)) }]);
             }
         } catch (error) {
             console.error('Error:', error);

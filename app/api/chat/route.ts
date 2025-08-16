@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MongoClient } from "mongodb";
+import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
+import { env } from "@/lib/config";
 
 // Define a more flexible message type
 interface ChatMessage {
@@ -6,15 +9,32 @@ interface ChatMessage {
     content: string;
 }
 
-const formatMessage = (message: ChatMessage) => {
-    return `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`;
-};
+interface MongoDocument {
+    _id?: unknown;
+    text?: string;
+    pageContent?: string;
+    content?: string;
+    source?: string;
+    fileName?: string;
+    loc?: {
+        pageNumber?: number;
+        lines?: { from: number; to: number };
+    };
+    fileId?: string;
+    score?: number;
+    embedding?: number[];
+    pdf?: {
+        totalPages?: number;
+        info?: {
+            Author?: string;
+        };
+    };
+}
 
 export async function POST(request: NextRequest) {
     const body = await request.json();
     const messages: ChatMessage[] = body.messages || [];
     const pdfId: string = body.pdfId;
-    const formatMessages = messages.slice(0, -1).map(formatMessage);
     const lastMessage = messages[messages.length - 1];
 
     if (!lastMessage) {
@@ -28,12 +48,8 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        // Temporarily use simple direct MongoDB query instead of vector search
+        // Use MongoDB vector search for AI-powered document retrieval
         console.log(`Searching for question: "${question}" with pdfId: ${pdfId}`);
-
-        // Import here to avoid issues
-        const { MongoClient } = require("mongodb");
-        const { env } = require("@/lib/config");
 
         const client = new MongoClient(env.MONGODB_URI);
         await client.connect();
@@ -57,7 +73,6 @@ export async function POST(request: NextRequest) {
         console.log('API Key exists:', !!env.GEMINI_API_KEY);
         console.log('API Key length:', env.GEMINI_API_KEY?.length || 0);
 
-        const { GoogleGenerativeAIEmbeddings } = require('@langchain/google-genai');
         const embeddings = new GoogleGenerativeAIEmbeddings({
             apiKey: env.GEMINI_API_KEY,
             model: "text-embedding-004",
@@ -68,7 +83,7 @@ export async function POST(request: NextRequest) {
         console.log(`✅ Question embedding created with ${questionEmbedding.length} dimensions`);
 
         // Try vector search first
-        let docs: any[] = [];
+        let docs: MongoDocument[] = [];
         try {
             const vectorSearchPipeline = [
                 {
@@ -102,9 +117,9 @@ export async function POST(request: NextRequest) {
 
                 // Filter out results with very low similarity scores (likely irrelevant)
                 const scoreThreshold = 0.6; // Adjust this threshold as needed
-                const relevantDocs = docs.filter((doc: any) => doc.score >= scoreThreshold);
+                const relevantDocs = docs.filter((doc: MongoDocument) => (doc.score ?? 0) >= scoreThreshold);
 
-                if (relevantDocs.length === 0 && docs[0].score < scoreThreshold) {
+                if (relevantDocs.length === 0 && docs.length > 0 && (docs[0].score ?? 0) < scoreThreshold) {
                     console.log(`🚫 Best match score (${docs[0].score}) below threshold (${scoreThreshold}), treating as no relevant results`);
                     docs = []; // Reset to trigger fallback logic
                 } else {
@@ -155,13 +170,13 @@ export async function POST(request: NextRequest) {
                             console.log(`✅ Success with index: ${indexName}`);
                             break;
                         }
-                    } catch (altError: any) {
-                        console.log(`Index ${indexName} failed:`, altError.message);
+                    } catch (altError) {
+                        console.log(`Index ${indexName} failed:`, (altError as Error).message);
                     }
                 }
             }
-        } catch (vectorError: any) {
-            console.log('⚠️ Vector search failed:', vectorError.message);
+        } catch (vectorError) {
+            console.log('⚠️ Vector search failed:', (vectorError as Error).message);
             console.log('Error details:', vectorError);
         }        // If vector search fails or returns no results, check question relevance first
         if (docs.length === 0) {
@@ -192,10 +207,10 @@ export async function POST(request: NextRequest) {
             } else {
                 // Get a small sample of document content to understand what the PDF is about
                 const sampleDocs = await collection.find({ fileId: pdfId }).limit(3).toArray();
-                const sampleContent = sampleDocs.map((doc: any) => doc.text || '').join(' ').toLowerCase();
+                const sampleContent = sampleDocs.map((doc: MongoDocument) => doc.text || '').join(' ').toLowerCase();
 
                 // Extract key terms from the sample to understand document topic
-                const documentTerms = new Set();
+                const documentTerms = new Set<string>();
                 const commonTerms = ['photon', 'matter', 'interaction', 'physics', 'energy', 'quantum', 'electron', 'atom', 'radiation', 'medical', 'helium', 'approximation', 'model'];
 
                 commonTerms.forEach(term => {
@@ -209,8 +224,8 @@ export async function POST(request: NextRequest) {
                 // Check if question is obviously unrelated to any document terms
                 const questionTerms = questionLower.split(' ').filter(word => word.length > 3);
                 const hasRelevantTerms = questionTerms.some(term => {
-                    return Array.from(documentTerms).some((docTerm: any) =>
-                        term.includes(String(docTerm)) || String(docTerm).includes(term)
+                    return Array.from(documentTerms).some((docTerm: string) =>
+                        term.includes(docTerm) || docTerm.includes(term)
                     );
                 });
 
@@ -315,7 +330,7 @@ export async function POST(request: NextRequest) {
 
                     // Sort by content that's most likely to be introductory/overview
                     if (docs.length > 0) {
-                        docs = docs.sort((a: any, b: any) => {
+                        docs = docs.sort((a: MongoDocument, b: MongoDocument) => {
                             const aText = (a.text || '').toLowerCase();
                             const bText = (b.text || '').toLowerCase();
 
@@ -354,12 +369,12 @@ export async function POST(request: NextRequest) {
                             ]
                         };
 
-                        let allDocs = await collection.find(keywordQuery).limit(20).toArray();
+                        const allDocs = await collection.find(keywordQuery).limit(20).toArray();
                         console.log(`Initial keyword search found ${allDocs.length} documents`);
 
                         if (allDocs.length > 0) {
                             // Filter out overview/intro pages (they usually have shorter content or contain series info)
-                            const contentDocs = allDocs.filter((doc: any) => {
+                            const contentDocs = allDocs.filter((doc: MongoDocument) => {
                                 const text = doc.text || '';
                                 const isOverviewPage = text.includes('Oxford Master Series') ||
                                     text.includes('course books') ||
@@ -374,7 +389,7 @@ export async function POST(request: NextRequest) {
                             const docsToSort = contentDocs.length > 0 ? contentDocs : allDocs;
 
                             // Sort by relevance (most keywords matched + content length preference)
-                            docs = docsToSort.sort((a: any, b: any) => {
+                            docs = docsToSort.sort((a: MongoDocument, b: MongoDocument) => {
                                 const aText = (a.text || '').toLowerCase();
                                 const bText = (b.text || '').toLowerCase();
 
@@ -461,7 +476,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Try different possible field names for content
-        const context = docs.map((doc: any) => {
+        const context = docs.map((doc: MongoDocument) => {
             // LangChain stores content in 'text' field, not 'pageContent'
             const content = doc.text || doc.pageContent || doc.content || '';
             console.log(`Document content length: ${content.length}`);
@@ -578,7 +593,7 @@ ${docs.length > 1 ? `This information comes from ${docs.length} different parts 
         // Return plain JSON response
         return NextResponse.json({
             answer: response,
-            sources: docs.map((doc: any) => ({
+            sources: docs.map((doc: MongoDocument) => ({
                 pageContent: doc.text || doc.pageContent || '',
                 metadata: {
                     source: doc.source,

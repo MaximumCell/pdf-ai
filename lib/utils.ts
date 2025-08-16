@@ -38,7 +38,7 @@ export const formatChatHistory = (chatHistory: [string, string][]) => {
   return formattedDialogueTurns.join("\n");
 };
 
-export function formattedText(inputText: string | any) {
+export function formattedText(inputText: string | unknown) {
   // Ensure we have a string to work with
   const text = typeof inputText === 'string' ? inputText : String(inputText || '');
 
@@ -63,7 +63,7 @@ interface Data {
 }
 
 // Maps the sources with the right ai-message
-export const getSources = (data: Data[], role: string, index: number) => {
+export const getSources = (data: Data[], role: string, index: number): string[] => {
   if (role === "assistant" && index >= 2 && (index - 2) % 2 === 0) {
     const sourcesIndex = (index - 2) / 2;
     if (data[sourcesIndex] && data[sourcesIndex].sources) {

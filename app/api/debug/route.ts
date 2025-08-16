@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { MongoClient } from "mongodb";
 import { env } from "@/lib/config";
 
-export async function GET(request: NextRequest) {
+interface DebugResult {
+    collections: Array<{
+        name: string;
+        documents: number;
+    }>;
+    totalDocuments: number;
+}
+
+export async function GET() {
     try {
         const client = new MongoClient(env.MONGODB_URI);
         await client.connect();
@@ -12,7 +20,7 @@ export async function GET(request: NextRequest) {
         // Get all collections
         const collections = await db.listCollections().toArray();
 
-        const result: any = {
+        const result: DebugResult = {
             collections: [],
             totalDocuments: 0
         };

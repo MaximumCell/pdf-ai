@@ -4,7 +4,7 @@ import { MongoDBAtlasVectorSearch } from "@langchain/mongodb";
 import { Document } from 'langchain/document';
 import { env } from './config';
 
-export async function embedAndStoreDocs(docs: Document<Record<string, any>>[], customCollectionName?: string) {
+export async function embedAndStoreDocs(docs: Document<Record<string, unknown>>[], customCollectionName?: string) {
     const mongoUri = env.MONGODB_URI;
     const dbName = env.MONGODB_DB_NAME;
     const collectionName = customCollectionName || env.MONGODB_COLLECTION_NAME;

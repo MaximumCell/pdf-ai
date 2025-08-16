@@ -39,11 +39,20 @@ export async function getMongoClient() {
     return mongoClientInstance;
 }
 
+interface VectorDocument {
+    id: string;
+    vector: number[];
+    metadata: Record<string, unknown>;
+    text: string;
+    createdAt?: Date;
+    score?: number;
+}
+
 // Insert vectors into MongoDB
 export async function insertVectors(vectors: Array<{
     id: string;
     values: number[];
-    metadata: any;
+    metadata: Record<string, unknown>;
     text: string;
 }>) {
     await getMongoClient();
@@ -61,7 +70,7 @@ export async function insertVectors(vectors: Array<{
 export async function queryVectors(
     vector: number[],
     topK: number = 5,
-    filter?: any
+    filter?: Record<string, unknown>
 ) {
     await getMongoClient();
 
@@ -96,7 +105,7 @@ export async function queryVectors(
 export async function queryVectorsBasic(
     vector: number[],
     topK: number = 5,
-    filter?: any
+    filter?: Record<string, unknown>
 ) {
     await getMongoClient();
 
@@ -105,7 +114,7 @@ export async function queryVectorsBasic(
     const results = await VectorModel.find(query).limit(topK * 5).lean(); // Get more docs to sort
 
     // Calculate cosine similarity
-    const resultsWithScore = results.map((doc: any) => {
+    const resultsWithScore = results.map((doc) => {
         const similarity = cosineSimilarity(vector, doc.vector);
         return {
             id: doc.id,
@@ -117,7 +126,7 @@ export async function queryVectorsBasic(
 
     // Sort by similarity score and return top K
     return resultsWithScore
-        .sort((a: any, b: any) => b.score - a.score)
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
         .slice(0, topK);
 }
 
@@ -130,7 +139,7 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 }
 
 // Delete vectors by filter
-export async function deleteVectors(filter: any) {
+export async function deleteVectors(filter: Record<string, unknown>) {
     await getMongoClient();
     return await VectorModel.deleteMany(filter);
 }
