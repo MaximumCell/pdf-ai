@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { embedAndStoreDocs } from "@/lib/vectorStore";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, unlink } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
 
 export async function POST(request: NextRequest) {
+    let filePath: string | null = null;
+    
     try {
         const formData = await request.formData();
         const file = formData.get('pdf') as File;
@@ -30,8 +32,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "File size too large. Maximum 10MB allowed." }, { status: 400 });
         }
 
-        // Create uploads directory if it doesn't exist
-        const uploadsDir = join(process.cwd(), 'uploads');
+        // Create uploads directory in /tmp for Vercel compatibility
+        const uploadsDir = join('/tmp', 'uploads');
         if (!existsSync(uploadsDir)) {
             await mkdir(uploadsDir, { recursive: true });
         }
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
         // Save file temporarily
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        const filePath = join(uploadsDir, `${fileId}-${file.name}`);
+        filePath = join(uploadsDir, `${fileId}-${file.name}`);
         await writeFile(filePath, buffer);
 
         // Process the PDF
@@ -112,7 +114,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Clean up temporary file
-        // You might want to keep it or move it to a permanent storage
+        if (filePath) {
+            try {
+                await unlink(filePath);
+                console.log(`Cleaned up temporary file: ${filePath}`);
+            } catch (cleanupError) {
+                console.warn(`Failed to clean up temporary file: ${cleanupError}`);
+            }
+        }
 
         return NextResponse.json({
             success: true,
@@ -124,6 +133,17 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error("Error processing PDF:", error);
+        
+        // Clean up temporary file on error
+        if (filePath) {
+            try {
+                await unlink(filePath);
+                console.log(`Cleaned up temporary file after error: ${filePath}`);
+            } catch (cleanupError) {
+                console.warn(`Failed to clean up temporary file after error: ${cleanupError}`);
+            }
+        }
+        
         return NextResponse.json(
             { error: "Failed to process PDF" },
             { status: 500 }
