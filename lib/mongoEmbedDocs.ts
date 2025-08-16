@@ -6,7 +6,6 @@ config();
 import { getChunkedDocsFromPDF } from "./pdfLoader";
 import { embedAndStoreDocs } from "./vectorStore";
 import { getMongoClient } from "./mongo-client";
-import { Document } from "langchain/document";
 
 // This function orchestrates the entire process of
 // loading a PDF, chunking it, embedding the chunks,

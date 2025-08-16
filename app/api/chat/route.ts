@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callChain } from "@/lib/langchain";
 
 // Define a more flexible message type
 interface ChatMessage {

@@ -2,7 +2,7 @@ import Balancer from "react-wrap-balancer";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import ReactMarkdown from "react-markdown";
-import { formattedSourceText } from "@/lib/utils";
+import { formattedText } from "@/lib/utils";
 
 export interface Message {
     id: string;
@@ -46,7 +46,7 @@ export function ChatBubble({ role, content, sources }: ChatBubbleProps) {
                                     <AccordionItem key={index} value={`source-${index}`}>
                                         <AccordionTrigger>{`source-${index+1}`}</AccordionTrigger>
                                         <AccordionContent>{`Source ${index+1}`}</AccordionContent>
-                                        <ReactMarkdown>{formattedSourceText(source)}</ReactMarkdown>
+                                        <ReactMarkdown>{formattedText(source)}</ReactMarkdown>
                                     </AccordionItem>
                                 ))}
                             </Accordion>
