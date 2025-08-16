@@ -1,18 +1,13 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import {
     ChatPromptTemplate,
-    MessagesPlaceholder,
 } from "@langchain/core/prompts";
 import { BaseMessage, HumanMessage, AIMessage } from "@langchain/core/messages";
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { createHistoryAwareRetriever } from "langchain/chains/history_aware_retriever";
 import { createRetrievalChain } from "langchain/chains/retrieval";
 import { getVectorStore } from "./vectorStore";
-import { getMongoClient } from "./mongo-client";
 import { streamingModel, nonStreamingModel } from "./llm";
-import { QA_TEMPLATE, STANDALONE_QUESTION_TEMPLATE } from "./promptTemplates";
-import { formatChatHistory } from "./utils";
-
+import { QA_TEMPLATE } from "./promptTemplates";
 type callChainArgs = {
     question: string;
     chatHistory: string;
